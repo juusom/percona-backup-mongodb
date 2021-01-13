@@ -222,7 +222,7 @@ func (r *Restore) init(name string, opid pbm.OPID, l *log.Event) (err error) {
 		return errors.Wrap(err, "define mongo version")
 	}
 
-	r.oplog = NewOplog(r.node, mgoV, preserveUUID)
+	r.oplog = NewOplog(r.node, mgoV, preserveUUID, r.log)
 
 	return nil
 }

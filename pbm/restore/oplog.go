@@ -6,6 +6,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"encoding/json"
 
 	"github.com/mongodb/mongo-tools-common/db"
 	"github.com/mongodb/mongo-tools-common/txn"
@@ -15,6 +16,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/percona/percona-backup-mongodb/pbm"
+	"github.com/percona/percona-backup-mongodb/pbm/log"
 )
 
 // Oplog is the oplog applyer
@@ -25,15 +27,17 @@ type Oplog struct {
 	needIdxWorkaround bool
 	preserveUUID      bool
 	lastTS            primitive.Timestamp
+	log		  *log.Event
 }
 
 // NewOplog creates an object for an oplog applying
-func NewOplog(dst *pbm.Node, sv *pbm.MongoVersion, preserveUUID bool) *Oplog {
+func NewOplog(dst *pbm.Node, sv *pbm.MongoVersion, preserveUUID bool, l *log.Event) *Oplog {
 	return &Oplog{
 		dst:               dst,
 		sv:                sv,
 		preserveUUID:      preserveUUID,
 		needIdxWorkaround: needsCreateIndexWorkaround(sv),
+		log:		   l,
 	}
 }
 
@@ -101,7 +105,12 @@ func (o *Oplog) Apply(src io.ReadCloser) (lts primitive.Timestamp, err error) {
 		} else {
 			err = o.handleNonTxnOp(oe)
 			if err != nil {
-				return lts, errors.Wrap(err, "applying an entry")
+				jsondata, jsonerr := json.Marshal(oe)
+				if jsonerr != nil {
+				  return lts, errors.Wrap(err, "json marshalling error")
+				}
+				o.log.Warning(err.Error())
+			        o.log.Warning(string(jsondata))
 			}
 		}
 
